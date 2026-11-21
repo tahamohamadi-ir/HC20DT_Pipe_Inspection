@@ -57,3 +57,9 @@ ros2 launch motoman_hc20_support view_hc20dt.launch.xml
 ```
 
 I checked the expanded URDF before mounting the scanner. It has six revolute joints. The `flange` frame is fixed 200 mm along the positive X axis of `link_6`. This offset is already included in the robot model.
+
+## Scanner mount in MuJoCo
+
+With the ROS workspace sourced and the Python environment active, run `python simulation/robot.py` from the repository root.
+
+At zero joint angles, the emitter was 475 mm forward and 50 mm above the flange. After I rotated `joint_6` by +90°, the ray pointed along +Y in the robot base frame. The script checks both poses.
