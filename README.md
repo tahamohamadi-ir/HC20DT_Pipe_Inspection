@@ -102,7 +102,7 @@ I excluded contact between `base_link` and `link_1` because their collision mesh
 python -m simulation.scene
 ```
 
-I placed the entrance centre at `(1.255, 0, 1.200)` m in `base_link`, with the pipe axis pointing along +X. At zero joint angles the emitter is at x = 1.555 m, which puts it 300 mm inside the pipe. The scene uses the supplied pipe and collar meshes for display and 32 box segments per ring for contact checks. This leaves the bore open for the scanner.
+I placed the entrance centre at `(1.255, 0, 1.200)` m in `base_link`, with the pipe axis pointing along +X. At zero joint angles the emitter is at x = 1.555 m, which puts it 300 mm inside the pipe. The pipe and collar dimensions follow the supplied geometry. The compiled scene uses 32 box segments per ring for rendering and contact checks. This leaves the bore open for the scanner.
 
 The scanner tip started 24.9 mm outside the entrance. MuJoCo reported zero contacts at the 101 sampled insertion poses, and the emitter reached the 100, 200 and 300 mm depth bands.
 
@@ -152,4 +152,30 @@ inspection, `/joint_states` publishes all six joint positions and velocities,
 and `/scanner_pose` publishes the scanner body's pose in `base_link`.
 The final log line reports the episode outcome and the number of targets covered.
 
-The pipe and collar dimensions follow the supplied geometry. The compiled MuJoCo scene represents each ring with 32 box segments for collision checks and rendering. The demo hides the near side of the rings to show the scanner and its ray inside the bore.
+## Evaluate the saved policy
+
+From the repository root, with the project environment active, run
+
+```bash
+python -m evaluation.run
+```
+
+The script loads the saved policy, reads the ten starts in [evaluation/starts.csv](evaluation/starts.csv), and writes one row per episode to [evaluation/results.csv](evaluation/results.csv). Across these ten starts, the policy covered all 24 targets on every run and withdrew fully with zero collisions.
+
+## View the inspection
+
+Watch the [recorded inspection](demo/inspection.mp4), or run the policy live in WSL with graphical application support:
+
+```bash
+MUJOCO_GL=egl python -m demo.live
+```
+
+The cutaway hides the near side of the rings so the scanner and its ray remain visible. The window shows coverage at each depth. Press Q or Esc to close it during the run.
+
+To record a new video at twice the simulation speed, run
+
+```bash
+MUJOCO_GL=egl python -m demo.record_demo
+```
+
+Both commands use OpenCV and EGL. Recording also requires FFmpeg with the libx264 encoder and replaces `demo/inspection.mp4`.
