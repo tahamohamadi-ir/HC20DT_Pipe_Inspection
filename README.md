@@ -151,3 +151,5 @@ The launch runs the saved PPO policy from the nominal start. During the
 inspection, `/joint_states` publishes all six joint positions and velocities,
 and `/scanner_pose` publishes the scanner body's pose in `base_link`.
 The final log line reports the episode outcome and the number of targets covered.
+
+The pipe and collar dimensions follow the supplied geometry. The compiled MuJoCo scene represents each ring with 32 box segments for collision checks and rendering. The demo hides the near side of the rings to show the scanner and its ray inside the bore.
