@@ -18,6 +18,7 @@ scene = """
     <body name="scanner">
       <freejoint/>
       <geom type="box" size="0.250 0.050 0.050" mass="1"/>
+      <site name="scan_origin" pos="0.225 0 0.050"/>
     </body>
   </worldbody>
 </mujoco>
@@ -97,3 +98,40 @@ for x, ray_angle_deg, expected_surface, expected_mm in ray_cases:
 
 print("Covered targets:", sorted(covered))
 assert covered == {(200, 1), (200, 3)}, covered
+
+site_id = model.site("scan_origin").id
+scanner_id = model.body("scanner").id
+
+# Scanner centre at x = -25 mm puts the emitter at x = 200 mm.
+data.qpos[:3] = (-0.025, 0.0, 0.0)
+
+# Roll about +X, expected emitter position (m), expected world direction.
+mounted_ray_cases = [
+    (0.0,  (0.200,  0.000, 0.050), (0.0,  0.0, 1.0)),
+    (90.0, (0.200, -0.050, 0.000), (0.0, -1.0, 0.0)),
+]
+
+for roll_deg, expected_origin, expected_direction in mounted_ray_cases:
+    half_angle = np.radians(roll_deg) / 2
+    data.qpos[3:7] = (np.cos(half_angle), np.sin(half_angle), 0.0, 0.0)
+    mujoco.mj_forward(model, data)
+
+    origin = data.site_xpos[site_id]
+    rotation = data.site_xmat[site_id].reshape(3, 3)
+    direction = rotation[:, 2].copy()  # Local +Z expressed in world coordinates.
+
+    assert np.allclose(origin, expected_origin), (roll_deg, origin)
+    assert np.allclose(direction, expected_direction), (roll_deg, direction)
+
+    geom_id = np.array([-1], dtype=np.int32)
+    distance = mujoco.mj_ray(
+        model, data, origin, direction, None, True, scanner_id, geom_id, None
+    )
+    assert distance >= 0, f"No hit from the mounted scanner at {roll_deg:g} deg"
+
+    surface = model.geom(int(geom_id[0])).name
+    distance_mm = distance * 1000
+    print(f"Mounted ray at {roll_deg:g} deg -> {surface}, {distance_mm:.1f} mm")
+
+    assert surface.startswith("pipe_wall"), (roll_deg, surface)
+    assert np.isclose(distance_mm, 125.0), (roll_deg, distance_mm)
