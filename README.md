@@ -12,7 +12,7 @@ I ran the project on Ubuntu 24.04.5 LTS under WSL 2 with ROS 2 Jazzy already ins
 /usr/bin/python3 -m venv --system-site-packages ~/.venvs/hc20dt
 source /opt/ros/jazzy/setup.bash
 source ~/.venvs/hc20dt/bin/activate
-python -m pip install mujoco==4.0.1
+python -m pip install -r requirements.txt
 ```
 
 I used the system Python so the environment could load the ROS Python bindings. To check both imports in the same session, run
