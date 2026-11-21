@@ -18,3 +18,16 @@ python -c "import os, rclpy, mujoco; print(os.environ['ROS_DISTRO'], mujoco.__ve
 ```
 
 Output: `jazzy 4.0.1`
+
+
+## Ray occlusion experiment
+
+With the environment above active, run this from the repository root:
+
+```bash
+ros2 launch experiments/ray_occlusion.launch.py
+```
+
+With the obstacle in the ray's path, the first hit is at 100 mm.
+Moving the obstacle 30 mm sideways exposes the wall at 125 mm.
+
