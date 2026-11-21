@@ -31,3 +31,29 @@ ros2 launch experiments/ray_occlusion.launch.py
 With the obstacle in the ray's path, the first hit is at 100 mm.
 Moving the obstacle 30 mm sideways exposes the wall at 125 mm.
 
+## HC20DT model in RViz
+
+I used Yaskawa's HC20DT description and built the two ROS packages in a separate workspace. To reproduce the setup:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+mkdir -p ~/hc20dt_ws/src
+cd ~/hc20dt_ws/src
+
+git clone --filter=blob:none --no-checkout https://github.com/Yaskawa-Global/motoman_ros2_support_packages.git
+cd motoman_ros2_support_packages
+git sparse-checkout set motoman_hc20_support motoman_resources
+git checkout --detach a77f186048bd3c35fc3bb5142f9d9270dbebe69f
+
+cd ~/hc20dt_ws
+colcon build --packages-select motoman_resources motoman_hc20_support
+source install/local_setup.bash
+```
+
+To open the robot model and joint sliders:
+
+```bash
+ros2 launch motoman_hc20_support view_hc20dt.launch.xml
+```
+
+I checked the expanded URDF before mounting the scanner. It has six revolute joints. The `flange` frame is fixed 200 mm along the positive X axis of `link_6`. This offset is already included in the robot model.
