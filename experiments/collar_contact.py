@@ -47,6 +47,7 @@ for label, x, z, expected_contact in cases:
     print(f"{label}: contact={contact}, points={data.ncon}")
     assert contact == expected_contact, label
 
+# Keep the scanner outside the pipe while testing rays from known positions.
 data.qpos[:3] = (-0.260, 0.0, 0.0)
 mujoco.mj_forward(model, data)
 
@@ -56,9 +57,12 @@ ray_cases = [
     (0.0125, "rim", 75.0),
 ]
 
+covered = set()
+
 for x, expected_surface, expected_mm in ray_cases:
     origin = np.array([x, 0.0, 0.050])
     geom_id = np.array([-1], dtype=np.int32)
+
     distance = mujoco.mj_ray(
         model, data, origin, direction, None, True, -1, geom_id, None
     )
@@ -70,3 +74,22 @@ for x, expected_surface, expected_mm in ray_cases:
 
     assert surface.startswith(expected_surface), surface
     assert np.isclose(distance_mm, expected_mm), distance_mm
+
+    if not surface.startswith("pipe_wall"):
+        continue
+    if not 75 <= distance_mm <= 175:
+        continue
+
+    hit_mm = (origin + distance * direction) * 1000
+    depth_mm, y_mm, z_mm = hit_mm
+
+    for band_mm in (100, 200, 300):
+        if abs(depth_mm - band_mm) <= 10:
+            # Around +X, the angle starts at +Z and increases toward -Y.
+            angle_deg = np.degrees(np.arctan2(-y_mm, z_mm)) % 360
+            sector = int(angle_deg // 45) + 1
+            covered.add((band_mm, sector))
+            break
+
+print("Covered targets:", sorted(covered))
+assert covered == {(200, 1)}, covered
