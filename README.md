@@ -80,3 +80,5 @@ I placed the pipe entrance at `(1.255, 0, 1.200)` m in `base_link`, with the pip
 The scanner tip started 24.9 mm outside the entrance. MuJoCo reported no contacts at the 101 sampled insertion poses, and the emitter reached the 100, 200 and 300 mm depth bands. From the final pose, I turned `joint_1` by +4° and confirmed contact between the scanner and the entrance collar.
 
 Run python -m simulation.coverage to check the scan ray at the centre of each sector. All 24 static poses returned the expected depth and sector without contact. Scanning the last pose twice kept the count at 24.
+
+With joint_3 at −2° and joint_5 at +15°, the scanner contacted the inner pipe wall 268–297 mm past the entrance, with no collar contact.
