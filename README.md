@@ -138,3 +138,16 @@ the 16-decision limit. On the nominal start, the policy kept requesting the
 same wrist position at 200 mm after its second decision.
 
 To reproduce training, run python -m training.pilot followed by python -m training.checkpoints from the repository root. I selected the 4,096-decision checkpoint after it covered all 24 targets and withdrew without contact on all five validation starts. Training took 461 seconds on an Intel Core i7-13620H CPU, excluding validation. The selected policy is included at models/hc20dt_ppo_4096.zip.
+
+## Run the saved policy with ROS 2
+
+From the repository root, activate the project environment as described above and run:
+
+```bash
+ros2 launch launch/inspection.launch.py
+```
+
+The launch runs the saved PPO policy from the nominal start. During the
+inspection, `/joint_states` publishes all six joint positions and velocities,
+and `/scanner_pose` publishes the scanner body's pose in `base_link`.
+The final log line reports the episode outcome and the number of targets covered.

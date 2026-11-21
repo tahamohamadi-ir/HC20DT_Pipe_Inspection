@@ -13,6 +13,7 @@ WRIST_DEG = (-165, 165)
 class InspectionEnv:
     def __init__(self):
         self.model = build_scene()
+        self.on_physics_step = None
         self.command = mujoco.MjData(self.model)
 
     def reset(self, *, base_offset_deg=0.0, shoulder_offset_deg=0.0):
@@ -52,6 +53,9 @@ class InspectionEnv:
 
         for _ in range(round(12 / self.model.opt.timestep)):
             step_toward(self.model, self.data, self.command)
+            if self.on_physics_step is not None:
+                self.on_physics_step()
+
             if self.data.ncon:
                 outcome = "collision"
                 break
