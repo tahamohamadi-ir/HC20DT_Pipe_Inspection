@@ -57,3 +57,32 @@ if __name__ == "__main__":
     target = scan_target(model, data)
     print("Target at zero pose:", target)
     assert target == (300, 1), target
+
+    covered = set()
+
+    for shoulder_deg, expected_band in [(-14, 100), (-7, 200), (0, 300)]:
+        for expected_sector in range(1, 9):
+            centre_deg = 45 * (expected_sector - 0.5)
+
+            # joint_6 turns about -X. Keep the wrist command within ±180°.
+            wrist_deg = (180 - centre_deg) % 360 - 180
+            set_scan_pose(data, np.deg2rad(shoulder_deg), np.deg2rad(wrist_deg))
+            mujoco.mj_forward(model, data)
+
+            expected = (expected_band, expected_sector)
+            assert data.ncon == 0, f"Unexpected contact at {expected}"
+
+            target = scan_target(model, data)
+            assert target == expected, (expected, target)
+            covered.add(target)
+
+        print(f"{expected_band} mm: 8 sectors verified")
+
+    assert len(covered) == 24
+
+    # Scan the last pose again without moving the robot.
+    repeated = scan_target(model, data)
+    assert repeated == (300, 8), repeated
+    covered.add(repeated)
+    assert len(covered) == 24
+    print("Unique targets after a repeated scan:", len(covered))

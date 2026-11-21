@@ -78,3 +78,5 @@ python -m simulation.scene
 I placed the pipe entrance at `(1.255, 0, 1.200)` m in `base_link`, with the pipe axis pointing along +X. At zero joint angles the emitter is at x = 1.555 m, which puts it 300 mm inside the pipe. The scene uses the supplied pipe and collar meshes for display and 32 box segments per ring for collision checks.
 
 The scanner tip started 24.9 mm outside the entrance. MuJoCo reported no contacts at the 101 sampled insertion poses, and the emitter reached the 100, 200 and 300 mm depth bands. From the final pose, I turned `joint_1` by +4° and confirmed contact between the scanner and the entrance collar.
+
+Run python -m simulation.coverage to check the scan ray at the centre of each sector. All 24 static poses returned the expected depth and sector without contact. Scanning the last pose twice kept the count at 24.
