@@ -1,0 +1,11 @@
+episode,base_offset_deg,shoulder_offset_deg,sectors_100,sectors_200,sectors_300,total_targets,collision,fully_outside_at_end,decisions,outcome,success
+1,0.000,0.000,8,8,8,24,False,True,9,success,True
+2,-0.659,-0.366,8,8,8,24,False,True,9,success,True
+3,-0.904,0.299,8,8,8,24,False,True,9,success,True
+4,-0.792,0.616,8,8,8,24,False,True,9,success,True
+5,0.218,-0.727,8,8,8,24,False,True,9,success,True
+6,0.033,-0.315,8,8,8,24,False,True,9,success,True
+7,0.169,0.692,8,8,8,24,False,True,9,success,True
+8,0.553,-0.474,8,8,8,24,False,True,9,success,True
+9,0.535,-0.031,8,8,8,24,False,True,9,success,True
+10,0.423,0.602,8,8,8,24,False,True,9,success,True
