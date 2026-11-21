@@ -66,3 +66,15 @@ At zero joint angles, the emitter was 475 mm forward and 50 mm above the flange.
 
 
 I excluded the base_link–`link_1` pair because their collision meshes overlap at the first joint. The zero pose then had no contacts. With joint_2 at −60° and joint_3 at 240°, MuJoCo still detected contact between base_link and link_5.
+
+## Pipe scene
+
+From the repository root, run:
+
+```bash
+python -m simulation.scene
+```
+
+I placed the pipe entrance at `(1.255, 0, 1.200)` m in `base_link`, with the pipe axis pointing along +X. At zero joint angles the emitter is at x = 1.555 m, which puts it 300 mm inside the pipe. The scene uses the supplied pipe and collar meshes for display and 32 box segments per ring for collision checks.
+
+The scanner tip started 24.9 mm outside the entrance. MuJoCo reported no contacts at the 101 sampled insertion poses, and the emitter reached the 100, 200 and 300 mm depth bands. From the final pose, I turned `joint_1` by +4° and confirmed contact between the scanner and the entrance collar.
