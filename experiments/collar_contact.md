@@ -22,3 +22,15 @@ Run from the repository root: `python experiments/collar_contact.py`
 Each check sets a static pose and calls `mj_forward`. A case passes when
 the observed contact state (`data.ncon > 0`) matches the expected value
 in the table. The point counts were recorded with MuJoCo 4.0.1.
+
+## Inner pipe wall
+
+The pipe has an inner radius of 175 mm. With the scanner centred at
+y = 0 and parallel to the pipe axis, its upper corner is 50 mm to the
+side and z + 50 mm above the pipe centre. For a circular bore, first
+contact occurs at z = √(175² − 50²) − 50 ≈ 117.7 mm.
+
+I set the scanner centre to x = 300 mm so its rear face was at x = 50 mm,
+clear of the collar ending at x = 25 mm. In the 32-segment pipe model,
+I observed no contact at z = 118 mm and contact at z = 119 mm. These two
+poses bracket the contact threshold for this orientation.
