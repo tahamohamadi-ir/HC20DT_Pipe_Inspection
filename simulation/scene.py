@@ -48,6 +48,13 @@ def build_scene():
 
     return spec.compile()
 
+def set_scan_pose(data, shoulder, wrist=0.0):
+    pitch = np.arcsin(0.820 * (np.cos(shoulder) - 1) / 0.880)
+    data.joint("joint_2").qpos[0] = shoulder
+    data.joint("joint_3").qpos[0] = shoulder - pitch
+    data.joint("joint_5").qpos[0] = pitch
+    data.joint("joint_6").qpos[0] = wrist
+
 
 if __name__ == "__main__":
     model = build_scene()
@@ -55,11 +62,7 @@ if __name__ == "__main__":
     bands_reached = set()
 
     for step, shoulder in enumerate(np.deg2rad(np.linspace(-25, 0, 101))):
-        # Keep the scanner horizontal and its centre on the pipe axis.
-        pitch = np.arcsin(0.820 * (np.cos(shoulder) - 1) / 0.880)
-        data.joint("joint_2").qpos[0] = shoulder
-        data.joint("joint_3").qpos[0] = shoulder - pitch
-        data.joint("joint_5").qpos[0] = pitch
+        set_scan_pose(data, shoulder)
         mujoco.mj_forward(model, data)
 
         assert data.ncon == 0, (step, data.ncon)
