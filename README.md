@@ -1,8 +1,12 @@
-# HC20DT_Pipe_Inspection
+# HC20DT Pipe Inspection
+
+This project uses ROS 2 Jazzy and MuJoCo to simulate a Yaskawa Motoman HC20DT inspecting the inside of a pipe. It includes the robot model, a flange-mounted scanner, collision and ray checks, and a scripted reference inspection.
 
 ## Local setup
 
-I ran the project setup on Ubuntu 24.04.5 LTS in WSL 2. ROS 2 Jazzy was already installed.
+I ran the project on Ubuntu 24.04.5 LTS under WSL 2 with ROS 2 Jazzy already installed. The commands below use `git`, `colcon`, `xacro`, and the system Python with `venv` support.
+
+### Create the Python environment
 
 ```bash
 /usr/bin/python3 -m venv --system-site-packages ~/.venvs/hc20dt
@@ -11,29 +15,17 @@ source ~/.venvs/hc20dt/bin/activate
 python -m pip install mujoco==4.0.1
 ```
 
-I checked that Python could load both ROS 2 and MuJoCo in the same session:
+I used the system Python so the environment could load the ROS Python bindings. To check both imports in the same session, run
 
 ```bash
 python -c "import os, rclpy, mujoco; print(os.environ['ROS_DISTRO'], mujoco.__version__)"
 ```
 
-Output: `jazzy 4.0.1`
+On my installation this printed `jazzy 4.0.1`.
 
+### Build the Yaskawa model packages
 
-## Ray occlusion experiment
-
-With the environment above active, run this from the repository root:
-
-```bash
-ros2 launch experiments/ray_occlusion.launch.py
-```
-
-With the obstacle in the ray's path, the first hit is at 100 mm.
-Moving the obstacle 30 mm sideways exposes the wall at 125 mm.
-
-## HC20DT model in RViz
-
-I used Yaskawa's HC20DT description and built the two ROS packages in a separate workspace. To reproduce the setup:
+I built Yaskawa's robot description in a separate ROS workspace. The checkout below uses the revision I tested.
 
 ```bash
 source /opt/ros/jazzy/setup.bash
@@ -47,38 +39,89 @@ git checkout --detach a77f186048bd3c35fc3bb5142f9d9270dbebe69f
 
 cd ~/hc20dt_ws
 colcon build --packages-select motoman_resources motoman_hc20_support
-source install/local_setup.bash
 ```
 
-To open the robot model and joint sliders:
+### Start a new terminal
+
+Open a WSL terminal in the `HC20DT_Pipe_Inspection` repository root. Run these three lines once in that terminal before starting the simulation.
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source ~/hc20dt_ws/install/local_setup.bash
+source ~/.venvs/hc20dt/bin/activate
+```
+
+To check that ROS can find the robot description, run
+
+```bash
+ros2 pkg prefix --share motoman_hc20_support
+```
+
+This should print the package's `share/motoman_hc20_support` directory under `~/hc20dt_ws/install`.
+
+## Reference inspection
+
+```bash
+python -m simulation.reference
+```
+
+The scripted controller starts with the scanner fully outside the entrance, inserts it, sweeps the wrist at three depths, and withdraws through the intermediate depths. The script checks for contact at every physics step. It checks withdrawal using the full scanner body, including its orientation.
+
+In the nominal run, MuJoCo reported zero contacts. The final output was
+
+```text
+Coverage at 100, 200, 300 mm: [8, 8, 8]
+Fully withdrawn: True
+```
+
+This run provides a baseline for evaluating a learned policy. The controller applies joint torques directly in MuJoCo without hardware torque limits.
+
+## HC20DT model in RViz
+
+To view the robot and move its six joints with sliders, run
 
 ```bash
 ros2 launch motoman_hc20_support view_hc20dt.launch.xml
 ```
 
-I checked the expanded URDF before mounting the scanner. It has six revolute joints. The `flange` frame is fixed 200 mm along the positive X axis of `link_6`. This offset is already included in the robot model.
+I checked the expanded URDF before mounting the scanner. It has six revolute joints. The fixed `flange` frame is 200 mm along the positive X axis of `link_6`. The robot description already includes this offset.
 
 ## Scanner mount in MuJoCo
 
-With the ROS workspace sourced and the Python environment active, run `python simulation/robot.py` from the repository root.
+```bash
+python simulation/robot.py
+```
 
-At zero joint angles, the emitter was 475 mm forward and 50 mm above the flange. After I rotated `joint_6` by +90°, the ray pointed along +Y in the robot base frame. The script checks both poses.
+At zero joint angles, the emitter was 475 mm forward and 50 mm above the flange. After I rotated `joint_6` by +90°, the ray pointed along +Y in the robot base frame. The script checks the emitter position and ray direction at both poses.
 
+I excluded contact between `base_link` and `link_1` because their collision meshes overlap at the first joint. The zero pose then had no contacts. With `joint_2` at −60° and `joint_3` at 240°, MuJoCo detected contact between `base_link` and `link_5`.
 
-I excluded the base_link–`link_1` pair because their collision meshes overlap at the first joint. The zero pose then had no contacts. With joint_2 at −60° and joint_3 at 240°, MuJoCo still detected contact between base_link and link_5.
-
-## Pipe scene
-
-From the repository root, run:
+## Pipe scene and contact checks
 
 ```bash
 python -m simulation.scene
 ```
 
-I placed the pipe entrance at `(1.255, 0, 1.200)` m in `base_link`, with the pipe axis pointing along +X. At zero joint angles the emitter is at x = 1.555 m, which puts it 300 mm inside the pipe. The scene uses the supplied pipe and collar meshes for display and 32 box segments per ring for collision checks.
+I placed the entrance centre at `(1.255, 0, 1.200)` m in `base_link`, with the pipe axis pointing along +X. At zero joint angles the emitter is at x = 1.555 m, which puts it 300 mm inside the pipe. The scene uses the supplied pipe and collar meshes for display and 32 box segments per ring for contact checks. This leaves the bore open for the scanner.
 
-The scanner tip started 24.9 mm outside the entrance. MuJoCo reported no contacts at the 101 sampled insertion poses, and the emitter reached the 100, 200 and 300 mm depth bands. From the final pose, I turned `joint_1` by +4° and confirmed contact between the scanner and the entrance collar.
+The scanner tip started 24.9 mm outside the entrance. MuJoCo reported zero contacts at the 101 sampled insertion poses, and the emitter reached the 100, 200 and 300 mm depth bands.
 
-Run python -m simulation.coverage to check the scan ray at the centre of each sector. All 24 static poses returned the expected depth and sector without contact. Scanning the last pose twice kept the count at 24.
+I checked two deliberate collisions. Turning `joint_1` by +4° from the final insertion pose brought the scanner into contact with the entrance collar. In a separate pose, with `joint_3` at −2° and `joint_5` at +15° and the other joints at zero, the scanner contacted the pipe wall 268.2–296.7 mm past the entrance. There was no collar contact in that pose.
 
-With joint_3 at −2° and joint_5 at +15°, the scanner contacted the inner pipe wall 268–297 mm past the entrance, with no collar contact.
+## Scan coverage
+
+```bash
+python -m simulation.coverage
+```
+
+A target is one of eight 45° sectors in a depth band centred at 100, 200 or 300 mm. The depth tolerance is ±10 mm. A scan counts when the ray's first hit is the inner pipe wall and its range is between 75 and 175 mm, inclusive. The ray test excludes the scanner body. Sector numbering starts at +Z and follows the right-hand rule around +X.
+
+I checked the centre of every sector at each depth. All 24 static poses returned the expected target without contact. Scanning the last pose a second time kept the count at 24.
+
+## Ray occlusion experiment
+
+```bash
+ros2 launch experiments/ray_occlusion.launch.py
+```
+
+With the obstacle in the ray's path, the first hit was the obstacle at 100 mm. Moving it 30 mm sideways exposed the wall at 125 mm.
