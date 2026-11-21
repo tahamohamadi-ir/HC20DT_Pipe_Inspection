@@ -136,3 +136,5 @@ five validation starts. After reloading the trained policy, coverage was
 [4, 1, 0] at 100, 200 and 300 mm on all five starts. Each episode reached
 the 16-decision limit. On the nominal start, the policy kept requesting the
 same wrist position at 200 mm after its second decision.
+
+To reproduce training, run python -m training.pilot followed by python -m training.checkpoints from the repository root. I selected the 4,096-decision checkpoint after it covered all 24 targets and withdrew without contact on all five validation starts. Training took 461 seconds on an Intel Core i7-13620H CPU, excluding validation. The selected policy is included at models/hc20dt_ppo_4096.zip.
