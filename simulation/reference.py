@@ -14,6 +14,16 @@ def fully_outside(data):
     front_x += 0.050 * (abs(axis_x[1]) + abs(axis_x[2]))
     return front_x < ENTRANCE[0]
 
+def step_toward(model, data, reference):
+    """Advance one physics step toward the requested joint positions."""
+    error = reference.qpos - data.qpos
+    speed = np.clip(5 * error, -0.8, 0.8)
+    acceleration = 20 * (speed - data.qvel)
+    mujoco.mj_mulM(model, data, data.qfrc_applied, acceleration)
+    data.qfrc_applied[:] += data.qfrc_bias
+
+    mujoco.mj_step(model, data)
+    mujoco.mj_forward(model, data)
 
 def run_reference():
     model = build_scene()
@@ -38,14 +48,8 @@ def run_reference():
         set_scan_pose(reference, np.deg2rad(shoulder), np.deg2rad(wrist))
 
         for _ in range(round(12 / model.opt.timestep)):
-            error = reference.qpos - data.qpos
-            speed = np.clip(5 * error, -0.8, 0.8)
-            acceleration = 20 * (speed - data.qvel)
-            mujoco.mj_mulM(model, data, data.qfrc_applied, acceleration)
-            data.qfrc_applied[:] += data.qfrc_bias
-
-            mujoco.mj_step(model, data)
-            mujoco.mj_forward(model, data)
+            step_toward(model, data, reference)
+            
             if data.ncon:
                 raise RuntimeError(
                     f"Contact at t={data.time:.3f} s moving toward "
