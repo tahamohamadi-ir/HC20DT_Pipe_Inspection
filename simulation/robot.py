@@ -49,6 +49,8 @@ def load_robot():
         ET.tostring(robot, encoding="unicode"), assets=assets
     )
     spec.body("scanner").add_site(name="scan_origin", pos=[0.475, 0.0, 0.050])
+    # The imported base and first-link collision meshes overlap at the joint.
+    spec.add_exclude(bodyname1="base_link", bodyname2="link_1")
     return spec
 
 
@@ -77,3 +79,18 @@ if __name__ == "__main__":
     assert np.allclose(direction, [0.0, 1.0, 0.0])
     print("Emitter after joint_6 +90 deg (m):", site.xpos.round(6))
     print("Ray direction:", direction.round(6))
+
+    data.qpos[:] = 0.0
+    mujoco.mj_forward(model, data)
+    assert data.ncon == 0, "Unexpected contact at the zero pose"
+
+    data.joint("joint_2").qpos[0] = np.deg2rad(-60)
+    data.joint("joint_3").qpos[0] = np.deg2rad(240)
+    mujoco.mj_forward(model, data)
+
+    contact_pairs = {
+        tuple(sorted(model.body(model.geom_bodyid[g]).name for g in contact.geom))
+        for contact in data.contact
+    }
+    assert ("base_link", "link_5") in contact_pairs, contact_pairs
+    print("Folded-pose contacts:", sorted(contact_pairs))

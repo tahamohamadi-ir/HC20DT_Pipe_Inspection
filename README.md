@@ -63,3 +63,6 @@ I checked the expanded URDF before mounting the scanner. It has six revolute joi
 With the ROS workspace sourced and the Python environment active, run `python simulation/robot.py` from the repository root.
 
 At zero joint angles, the emitter was 475 mm forward and 50 mm above the flange. After I rotated `joint_6` by +90°, the ray pointed along +Y in the robot base frame. The script checks both poses.
+
+
+I excluded the base_link–`link_1` pair because their collision meshes overlap at the first joint. The zero pose then had no contacts. With joint_2 at −60° and joint_3 at 240°, MuJoCo still detected contact between base_link and link_5.
