@@ -51,26 +51,30 @@ for label, x, z, expected_contact in cases:
 data.qpos[:3] = (-0.260, 0.0, 0.0)
 mujoco.mj_forward(model, data)
 
-direction = np.array([0.0, 0.0, 1.0])
+# Depth (m), ray angle (degrees), expected first surface, expected range (mm).
 ray_cases = [
-    (0.2000, "pipe_wall", 125.0),
-    (0.0125, "rim", 75.0),
+    (0.2000, 0.0, "pipe_wall", 125.0),
+    (0.0125, 0.0, "rim", 75.0),
+    (0.2000, 112.5, "pipe_wall", 125.0),
 ]
 
 covered = set()
 
-for x, expected_surface, expected_mm in ray_cases:
-    origin = np.array([x, 0.0, 0.050])
+for x, ray_angle_deg, expected_surface, expected_mm in ray_cases:
+    theta = np.radians(ray_angle_deg)
+    direction = np.array([0.0, -np.sin(theta), np.cos(theta)])
+    origin = np.array([x, 0.0, 0.0]) + 0.050 * direction
     geom_id = np.array([-1], dtype=np.int32)
 
     distance = mujoco.mj_ray(
         model, data, origin, direction, None, True, -1, geom_id, None
     )
-    assert distance >= 0, f"No ray hit at x={x} m"
+    assert distance >= 0, f"No ray hit at x={x} m, angle={ray_angle_deg} deg"
 
     surface = model.geom(int(geom_id[0])).name
     distance_mm = distance * 1000
-    print(f"x={x * 1000:g} mm -> {surface}, {distance_mm:.1f} mm")
+    print(f"x={x * 1000:g} mm, angle={ray_angle_deg:g} deg -> "
+          f"{surface}, {distance_mm:.1f} mm")
 
     assert surface.startswith(expected_surface), surface
     assert np.isclose(distance_mm, expected_mm), distance_mm
@@ -92,4 +96,4 @@ for x, expected_surface, expected_mm in ray_cases:
             break
 
 print("Covered targets:", sorted(covered))
-assert covered == {(200, 1)}, covered
+assert covered == {(200, 1), (200, 3)}, covered
