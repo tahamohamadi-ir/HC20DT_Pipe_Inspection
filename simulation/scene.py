@@ -95,3 +95,27 @@ if __name__ == "__main__":
 
     assert any(name.startswith("rim_") for name in scanner_contacts), scanner_contacts
     print("Scanner contact:", sorted(scanner_contacts))
+
+    # Clear the joint_1 offset from the collar test.
+    data.qpos[:] = 0.0
+    data.joint("joint_3").qpos[0] = np.deg2rad(-2)
+    data.joint("joint_5").qpos[0] = np.deg2rad(15)
+    mujoco.mj_forward(model, data)
+
+    assert data.ncon > 0, "Expected contact with the inner pipe wall"
+    wall_depths_mm = []
+
+    for contact in data.contact:
+        first, second = contact.geom
+        assert scanner_geom in (first, second), "Unexpected robot contact"
+
+        other = second if first == scanner_geom else first
+        surface = model.geom(other).name
+        assert surface.startswith("pipe_"), f"Unexpected contact with {surface}"
+
+        depth_mm = 1000 * (contact.pos[0] - ENTRANCE[0])
+        assert 25 < depth_mm < 400, depth_mm
+        wall_depths_mm.append(depth_mm)
+
+    print(f"Scanner-wall contact depth: "
+          f"{min(wall_depths_mm):.1f} to {max(wall_depths_mm):.1f} mm")
