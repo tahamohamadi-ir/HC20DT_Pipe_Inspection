@@ -125,3 +125,14 @@ ros2 launch experiments/ray_occlusion.launch.py
 ```
 
 With the obstacle in the ray's path, the first hit was the obstacle at 100 mm. Moving it 30 mm sideways exposed the wall at 125 mm.
+
+## PPO pilot
+
+Run `python -m training.pilot` from the repository root. I trained PPO on CPU
+for 128 decisions with seed 0. Training took 11.0 s, excluding validation.
+
+Before training, the deterministic policy withdrew with zero coverage on all
+five validation starts. After reloading the trained policy, coverage was
+[4, 1, 0] at 100, 200 and 300 mm on all five starts. Each episode reached
+the 16-decision limit. On the nominal start, the policy kept requesting the
+same wrist position at 200 mm after its second decision.
