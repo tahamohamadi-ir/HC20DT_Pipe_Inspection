@@ -15,12 +15,21 @@ class InspectionEnv:
         self.model = build_scene()
         self.command = mujoco.MjData(self.model)
 
-    def reset(self):
+    def reset(self, *, base_offset_deg=0.0, shoulder_offset_deg=0.0):
+        offsets = np.array([base_offset_deg, shoulder_offset_deg], dtype=float)
+        if offsets.shape != (2,) or not np.all(np.abs(offsets) <= 1.0):
+            raise ValueError("Start offsets must each be within [-1, 1] degrees")
+
         self.data = mujoco.MjData(self.model)
         set_scan_pose(self.data, np.deg2rad(SHOULDER_DEG[0]))
-        mujoco.mj_forward(self.model, self.data)
-        assert fully_outside(self.data) and self.data.ncon == 0
+        for joint, offset in zip(("joint_1", "joint_2"), np.deg2rad(offsets)):
+            self.data.joint(joint).qpos[0] += offset
 
+        mujoco.mj_forward(self.model, self.data)
+        if not fully_outside(self.data) or self.data.ncon:
+            raise ValueError(f"Invalid starting pose for offsets {offsets.tolist()}")
+
+        self.start_qpos_rad = self.data.qpos.copy()
         self.covered = set()
         self.remaining = 16
         self.done = False
@@ -96,3 +105,12 @@ if __name__ == "__main__":
     _, reward, done, outcome = env.step(0, 0)
     print(outcome, len(env.covered), reward)
     assert done and outcome == "incomplete" and reward == -25
+
+    for base, shoulder in [(0.0, 0.0), (-1.0, 1.0), (1.0, -1.0)]:
+        qpos, covered, remaining = env.reset(
+            base_offset_deg=base, shoulder_offset_deg=shoulder
+        )
+        measured = np.rad2deg(qpos[:2])
+        assert np.allclose(measured, [base, -25.0 + shoulder])
+        assert not covered and remaining == 16
+        print("Starting joint_1 and joint_2 (deg):", measured.round(2).tolist())
