@@ -269,13 +269,13 @@ The first command trains PPO, DQN and A2C for 4,096 decisions with seed 0 and ev
 | A2C | CPU | 0 / 10 | 0 / 10 | 431 s |
 | A2C | CUDA | 0 / 10 | 0 / 10 | 480 s |
 
-None of the runs had a collision. Only the two-stage recipe succeeded, on both devices. Retrained on CPU, it chose the same nine actions as the submitted policy. Trained on CUDA, it found a shorter sequence (`3 3 6 3 4 3 0`) that took 42.57 s of simulated motion instead of 58.84 s. The other controllers never chose to withdraw and ran out of decisions, often repeating one command. Continuous PPO on CUDA still covered all 24 targets, which is why the success check needs withdrawal as well as coverage.
+None of the runs had a collision. Only the two-stage recipe succeeded, on both devices. Retrained on CPU, it chose the same nine actions as the submitted policy. Trained on CUDA, it found a shorter sequence (`3 3 6 3 4 3 0`) that took 42.57 s of simulated motion instead of 58.84 s. The other controllers never chose to withdraw and ran out of decisions, often repeating one command. Continuous PPO on CUDA still covered all 24 targets but failed because it never withdrew.
 
 ![Coverage, withdrawal and success for each controller](report/figures/fig7_controller_outcomes.png)
 
 The GPU did not make training faster. The network is small and MuJoCo runs on the CPU either way.
 
-The device does change what training produces. With the same seed, PyTorch draws different random numbers on the CPU and on the GPU, so PPO samples different actions while it learns and ends with a different policy. Switching the training device therefore acts like changing the seed. Evaluation is different: each trained model gave identical actions, coverage and outcomes on both devices in all 90 paired episodes. The saved policy gave the same results on both devices and took 19.15 s on CPU and 19.54 s on CUDA for the ten runs. These times come from one run per condition.
+The device does change what training produces. With the same seed, PyTorch draws different random numbers on the CPU and on the GPU, so PPO samples different actions while it learns and ends with a different policy. Switching the training device therefore acts like changing the seed. Evaluation is different: each trained model gave identical actions, coverage and outcomes on both devices in all 90 paired episodes. For the saved policy, the ten runs took 19.15 s on CPU and 19.54 s on CUDA, from one timing run each.
 
 ![Training and evaluation time on CPU and CUDA](report/figures/fig6_hardware.png)
 
@@ -341,7 +341,7 @@ The first start is the nominal pose. The other nine change `joint_1` and `joint_
 | 9 | 0.535 | −0.031 | 8 / 8 / 8 | No | Yes | Success |
 | 10 | 0.423 | 0.602 | 8 / 8 / 8 | No | Yes | Success |
 
-The success rate was 10/10. There was no recurring failure on these starts. The policy chose the same nine actions from every start (`2 7 2 5 2 5 2 5 1`). The joint controller absorbed the start offsets, so these runs test the controller as much as the policy. The policy had all 24 targets after its fourth action. It then revisited the 100 and 200 mm bands before withdrawing, because the reward does not penalise extra moves.
+The success rate was 10/10. There was no recurring failure on these starts. The policy chose the same nine actions from every start (`2 7 2 5 2 5 2 5 1`). The joint controller absorbed the start offsets, so these runs mainly test the controller. The policy had all 24 targets after its fourth action. It then revisited the 100 and 200 mm bands before withdrawing, because the reward does not penalise extra moves.
 
 ### Missing scan readings
 
