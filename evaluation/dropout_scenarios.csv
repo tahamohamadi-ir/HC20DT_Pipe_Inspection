@@ -1,0 +1,8 @@
+scenario,start_s,duration_s
+no_dropout,0,0
+early_1s,4,1
+early_3s,4,3
+middle_1s,12,1
+middle_3s,12,3
+late_1s,20,1
+late_3s,20,3
