@@ -45,7 +45,13 @@ source ~/.venvs/hc20dt/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-I used the system Python so the environment could load the ROS Python bindings. To check both imports in the same session, run
+I used the system Python so the environment could load the ROS Python bindings. The demo and the figure scripts also need OpenCV, Matplotlib and Pillow. I used the Ubuntu packages (OpenCV 4.6.0, Matplotlib 3.6.3, Pillow 10.2.0), which the environment sees through `--system-site-packages`:
+
+```bash
+sudo apt install python3-opencv python3-matplotlib python3-pil
+```
+
+To check both imports in the same session, run
 
 ```bash
 python -c "import os, rclpy, mujoco; print(os.environ['ROS_DISTRO'], mujoco.__version__)"
@@ -132,7 +138,7 @@ The scanner hangs from the `flange` through a fixed joint, so MuJoCo treats the 
 python -m simulation.scene
 ```
 
-I placed the entrance centre at `(1.255, 0, 1.200)` m in `base_link`, with the pipe axis pointing along +X. At zero joint angles the emitter is at x = 1.555 m, which puts it 300 mm inside the pipe. The pipe and collar dimensions follow the supplied geometry. The compiled scene uses 32 box segments per ring for rendering and contact checks. This leaves the bore open for the scanner.
+I placed the entrance centre at `(1.255, 0, 1.200)` m in `base_link`, with the pipe axis pointing along +X. At zero joint angles the emitter is at x = 1.555 m, which puts it 300 mm inside the pipe. The pipe and collar dimensions follow the supplied geometry. Each ring uses the supplied STL mesh for rendering only. Contact checks and the scan ray use 32 boxes per ring, sized from the same inner and outer radii, because MuJoCo would otherwise fill the bore with the mesh's convex hull.
 
 The scanner tip started 24.9 mm outside the entrance. MuJoCo reported zero contacts at the 101 sampled insertion poses, and the emitter reached the 100, 200 and 300 mm depth bands.
 
@@ -254,7 +260,7 @@ The first command trains PPO, DQN and A2C for 4,096 decisions with seed 0 and ev
 
 | Controller (seed 0, 4,096 decisions) | Trained on | Successes | All 24 targets | Training time |
 |---|---|---|---|---|
-| Two-stage PPO (submitted recipe) | CPU | 10 / 10 | 10 / 10 | 518 s |
+| Two-stage PPO (submitted recipe) | CPU | 10 / 10 | 10 / 10 | 518 s (separate rerun; the submitted run took 461 s) |
 | Two-stage PPO (submitted recipe) | CUDA | 10 / 10 | 10 / 10 | 529 s |
 | Continuous PPO | CPU | 0 / 10 | 0 / 10 | 494 s |
 | Continuous PPO | CUDA | 0 / 10 | 10 / 10 | 539 s |
@@ -267,7 +273,9 @@ None of the runs had a collision. Only the two-stage recipe succeeded, on both d
 
 ![Coverage, withdrawal and success for each controller](report/figures/fig7_controller_outcomes.png)
 
-The GPU did not make training faster. The network is small and MuJoCo runs on the CPU either way. The saved policy gave the same results on both devices and took 19.15 s on CPU and 19.54 s on CUDA for the ten runs. These times come from one run per condition.
+The GPU did not make training faster. The network is small and MuJoCo runs on the CPU either way.
+
+The device does change what training produces. With the same seed, PyTorch draws different random numbers on the CPU and on the GPU, so PPO samples different actions while it learns and ends with a different policy. Switching the training device therefore acts like changing the seed. Evaluation is different: each trained model gave identical actions, coverage and outcomes on both devices in all 90 paired episodes. The saved policy gave the same results on both devices and took 19.15 s on CPU and 19.54 s on CUDA for the ten runs. These times come from one run per condition.
 
 ![Training and evaluation time on CPU and CUDA](report/figures/fig6_hardware.png)
 
@@ -386,13 +394,18 @@ To record a new video at twice the simulation speed, run
 MUJOCO_GL=egl python -m demo.record_demo
 ```
 
-Both commands use OpenCV and EGL. Recording also requires FFmpeg with the libx264 encoder and replaces `demo/inspection.mp4`.
+Both commands use OpenCV and EGL. Recording also requires FFmpeg with the libx264 encoder (`sudo apt install ffmpeg`, or a Windows `ffmpeg.exe` on the path under WSL) and replaces `demo/inspection.mp4`.
+
+![Nine frames from the recorded inspection](report/figures/fig11_demo_frames.png)
+
+The frames come from the recorded video, which plays at twice the simulation speed. The header shows simulation time and the sectors covered at each depth. All 24 targets are covered by 32 s. The remaining moves revisit the 100 and 200 mm bands, and the scanner is fully withdrawn at 58.8 s.
 
 ## Regenerate the report figures
 
 ```bash
 MUJOCO_GL=egl python -m report.make_figures
 python -m report.plot_benchmarks
+python -m report.demo_frames
 ```
 
-The first command reruns the saved policy to draw figures 1–5 from the committed results. The second draws figures 6–10 from the CSV and text results without running the simulation. Both write to `report/figures/`.
+The first command reruns the saved policy to draw figures 1–5 from the committed results. The second draws figures 6–10 from the CSV and text results without running the simulation. The third takes nine frames from `demo/inspection.mp4` with FFmpeg. All three write to `report/figures/`.
