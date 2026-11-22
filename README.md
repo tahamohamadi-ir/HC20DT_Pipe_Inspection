@@ -2,7 +2,7 @@
 
 This project uses ROS 2 Jazzy and MuJoCo to simulate a fixed-base Yaskawa Motoman HC20DT inspecting the inside of a pipe. A PPO policy chooses where the scanner goes next: it inserts the scanner through the entrance collar, scans the wall at 100, 200 and 300 mm, and withdraws it. MuJoCo checks for contact at every physics step. A ROS 2 launch file runs the saved policy and publishes the joint states and the scanner pose.
 
-On the ten evaluation starts, the saved policy covered all 24 targets and withdrew fully with zero collisions every time. The technical report is in [report/REPORT.md](report/REPORT.md).
+On the ten evaluation starts, the saved policy covered all 24 targets and withdrew fully with zero collisions every time. The technical report is in [report/REPORT.md](report/REPORT.md), with a PDF copy in [report/HC20DT_technical_report.pdf](report/HC20DT_technical_report.pdf).
 
 ![The scanner outside the collar at the start, and at the 300 mm band](report/figures/fig1_scene.png)
 

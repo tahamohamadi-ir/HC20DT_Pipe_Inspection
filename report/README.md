@@ -1,10 +1,11 @@
 # report
 
-[REPORT.md](REPORT.md) is the technical report. The same text is submitted as a PDF in the ZIP archive.
+The technical report is in two formats with the same text: [REPORT.md](REPORT.md) for reading on GitHub and [HC20DT_technical_report.pdf](HC20DT_technical_report.pdf) for print.
 
 | Path | What it holds |
 |---|---|
 | `REPORT.md` | The report: task, policy, training, evaluation, contact checks, limits and an appendix on other algorithms and devices. |
+| `HC20DT_technical_report.pdf` | The same report as a six-page PDF. |
 | `figures/` | All figure files. The report uses `fig1`, `fig5`, `fig10` and `fig9` as Figures 1–4, and `fig7` and `fig6` as Figures 5 and 6 in the appendix. |
 | `data/seed_results.csv` | Results of the five-seed study behind the seed figure. |
 | `make_figures.py` | Reruns the saved policy to draw figures 1–5. |
