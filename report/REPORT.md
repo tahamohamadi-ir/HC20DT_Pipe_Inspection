@@ -1,5 +1,7 @@
 # Pipe inspection with the Yaskawa HC20DT
 
+Taha Mohammadi · November 2026 · [github.com/tahamohamadi-ir/HC20DT_Pipe_Inspection](https://github.com/tahamohamadi-ir/HC20DT_Pipe_Inspection)
+
 A fixed-base robot has to pass a scanner through a narrow collar, scan the pipe wall and pull the whole tool back out. The saved policy completed all ten evaluation runs. In each one it scanned all 24 targets and withdrew without contact. In a separate test, scan readings were withheld for three seconds. On its fourth move the policy chose a deeper pass and recovered three sectors that a fixed command sequence missed.
 
 ## The inspection task
@@ -148,8 +150,22 @@ Only two-stage PPO succeeded, and it did so on both devices. Retrained on the CP
 
 ![Training and evaluation time on CPU and CUDA](figures/fig6_hardware.png)
 
-*Figure 6. Training time for 4,096 decisions and wall time for the ten official runs. One timing run per condition.*
+*Figure 6. Training time for 4,096 decisions and wall time for the ten official runs. One timing run per condition. The two-stage CPU bar is a separate rerun; the submitted run took 461 s.*
 
 The GPU did not shorten training. The network is small and MuJoCo runs on the CPU either way, so each GPU run took slightly longer. The saved policy gave the same results on both devices, taking 19.15 s on the CPU and 19.54 s on the GPU for the ten runs.
 
 Project files: [Comparison script](../training/compare_controllers.py) · [CPU and CUDA runs](../training/compare_devices.sh) · [Summary](../evaluation/hardware_seed0_4096/summary.csv) · [Episode results](../evaluation/hardware_seed0_4096)
+
+## Demo and discussion
+
+![Nine frames from the recorded demo](figures/fig11_demo_frames.png)
+
+*Figure 7. Nine frames from the recorded demo of the nominal start. The video plays at twice the simulation speed; the header shows simulation time and sectors covered at each depth. All 24 targets are covered by 32 s, and the scanner is fully withdrawn at 58.8 s.*
+
+**What the policy controls.** PPO chooses the order of eight scan commands, one per move. It does not produce joint torques or trajectories: the scan poses, the levelling calculation and the joint controller are fixed. The evidence that its choices depend on what the scanner has seen comes from the dropout test described above. On the ten official starts its decisions did not change, so those runs mainly test the controller.
+
+**How it compares with a script.** In this fixed scene, a short script that repeats a sweep when a band is incomplete did as well or better: 70 of 70 runs with full coverage, in about half the simulated time. The learned policy spends four extra moves after full coverage because the reward has no cost per move. Its success also depends on the training run: one of five seeds passed at 4,096 decisions, and changing the training device acted like changing the seed, because PyTorch draws different random numbers on the CPU and the GPU. A fixed checkpoint, in contrast, gave identical actions and outcomes on both devices in all 90 paired episodes.
+
+**Next steps.** The first change would be a small cost per decision, so that withdrawing right after full coverage pays off, followed by more seeds and longer runs to measure how often the recipe succeeds. Adding the pipe pose and the scan depth to the observation, with continuous or residual actions on top of the controller, would let the policy handle pipe placement error, which neither the current policy nor the script can do. A short levelling move before the first insertion would address the collar contacts in the six-joint test.
+
+Project files: [Demo video](../demo/inspection.mp4) · [Frame script](demo_frames.py) · [Dropout results](../evaluation/dropout_results.csv) · [Seed results](data/seed_results.csv)
