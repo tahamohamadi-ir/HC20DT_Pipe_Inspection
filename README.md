@@ -1,6 +1,8 @@
 # HC20DT Pipe Inspection
 
-This project uses ROS 2 Jazzy and MuJoCo to simulate a Yaskawa Motoman HC20DT inspecting the inside of a pipe. It includes the robot model, a flange-mounted scanner, collision and ray checks, and a scripted reference inspection.
+This project uses ROS 2 Jazzy and MuJoCo to simulate a fixed-base Yaskawa Motoman HC20DT inspecting the inside of a pipe. A PPO policy chooses where the scanner goes next: it inserts the scanner through the entrance collar, scans the wall at 100, 200 and 300 mm, and withdraws it. MuJoCo checks for contact at every physics step. A ROS 2 launch file runs the saved policy and publishes the joint states and the scanner pose.
+
+On the ten evaluation starts, the saved policy covered all 24 targets and withdrew fully with zero collisions every time.
 
 ## Local setup
 
@@ -126,18 +128,57 @@ ros2 launch experiments/ray_occlusion.launch.py
 
 With the obstacle in the ray's path, the first hit was the obstacle at 100 mm. Moving it 30 mm sideways exposed the wall at 125 mm.
 
-## PPO pilot
+## Train the policy
 
-Run `python -m training.pilot` from the repository root. I trained PPO on CPU
-for 128 decisions with seed 0. Training took 11.0 s, excluding validation.
+### What the policy controls
 
-Before training, the deterministic policy withdrew with zero coverage on all
-five validation starts. After reloading the trained policy, coverage was
-[4, 1, 0] at 100, 200 and 300 mm on all five starts. Each episode reached
-the 16-decision limit. On the nominal start, the policy kept requesting the
-same wrist position at 200 mm after its second decision.
+At each decision, the policy picks one of eight commands. Each command sets a shoulder target, which sets the scan depth, and a wrist target, which sweeps the ray around the pipe. A fixed calculation sets the other joints so the scanner stays level, and a joint controller moves the arm to the commanded pose.
 
-To reproduce training, run python -m training.pilot followed by python -m training.checkpoints from the repository root. I selected the 4,096-decision checkpoint after it covered all 24 targets and withdrew without contact on all five validation starts.
+| Shoulder target | Tool position | Wrist −165° | Wrist +165° |
+|---|---|---|---|
+| −25° | Withdraw | 0 | 1 |
+| −14° | 100 mm band | 2 | 3 |
+| −7° | 200 mm band | 4 | 5 |
+| 0° | 300 mm band | 6 | 7 |
+
+Moving between the two wrist targets turns the ray through 330°. The 30° gap is smaller than one 45° sector, so one wrist move crosses all eight sectors.
+
+- **Observation (31 values):** the six joint angles divided by π, 24 flags for the targets already seen, and the fraction of the 16 decisions left.
+- **Reward:** +1 for each new target. +25 at the end of a successful episode and −25 at any other ending.
+- **End of an episode:** a withdrawal command once the move settles, any contact, a move that does not settle within 12 simulated seconds, or all 16 decisions used.
+- **Algorithm:** PPO from Stable-Baselines3 with an MLP policy, 64 decisions per rollout, batches of 32, discount factor 1 and seed 0. Evaluation uses the most probable action.
+
+### PPO pilot
+
+```bash
+python -m training.pilot
+```
+
+I trained PPO on CPU for 128 decisions with seed 0. Training took 11.0 s, excluding validation.
+
+Before training, the deterministic policy withdrew with zero coverage on all five validation starts. After reloading the trained policy, coverage was [4, 1, 0] at 100, 200 and 300 mm on all five starts. Each episode reached the 16-decision limit. On the nominal start, the policy kept requesting the same wrist position at 200 mm after its second decision.
+
+### Checkpoints
+
+```bash
+python -m training.checkpoints
+```
+
+This loads the pilot and continues training to 1,024, 2,048 and 4,096 decisions, checking each checkpoint on the five validation starts. Coverage on those starts was [4, 0, 0] at 1,024, [5, 2, 8] at 2,048 and [8, 8, 8] at 4,096. I selected the 4,096-decision checkpoint because it was the first to cover all 24 targets and withdraw without contact on all five validation starts.
+
+Both commands save their models in `/tmp`. To use a new run instead of the submitted policy, copy `/tmp/hc20dt_ppo_4096.zip` to `models/hc20dt_ppo_4096.zip`.
+
+## Seed study
+
+To train PPO from scratch for seeds 0–4 without the pilot restart, run
+
+```bash
+python -m training.seed_study
+```
+
+Each seed trains continuously and is checked at 128, 1,024, 2,048, 4,096 and 8,192 decisions on the five validation starts and the ten official starts. The script writes `report/data/seed_results_rerun.csv`. The data in Figure 3 are in `report/data/seed_results.csv`. One of five seeds passed at 4,096 decisions and three passed at 8,192. The uninterrupted seed-0 run did not pass at either budget, so the submitted policy depends on the two-stage run above.
+
+The training times in `seed_results.csv` are about 2.4 times those of a single run on an idle CPU: 26.3 s against 10.8 s for the first 128 decisions of seed 0. Compare the pass and coverage columns rather than the times. All five seeds take several hours on CPU.
 
 ## Hardware and training time
 
@@ -184,7 +225,57 @@ From the repository root, with the project environment active, run
 python -m evaluation.run
 ```
 
-The script loads the saved policy, reads the ten starts in [evaluation/starts.csv](evaluation/starts.csv), and writes one row per episode to [evaluation/results.csv](evaluation/results.csv). Across these ten starts, the policy covered all 24 targets on every run and withdrew fully with zero collisions.
+The script loads the saved policy, reads the ten starts in [evaluation/starts.csv](evaluation/starts.csv), and writes one row per episode to [evaluation/results.csv](evaluation/results.csv).
+
+The first start is the nominal pose. The other nine change `joint_1` and `joint_2` by −1° to +1°. I split each range into thirds and drew one offset pair from each of the nine cells with random seed 1. The starts were fixed before I evaluated the saved policy. An episode succeeds if it scans at least 20 of 24 targets, with at least six at each depth, then fully withdraws with zero collisions.
+
+| Run | joint_1 offset (°) | joint_2 offset (°) | Targets at 100 / 200 / 300 mm | Collision | Withdrawn | Result |
+|---|---|---|---|---|---|---|
+| 1 | 0.000 | 0.000 | 8 / 8 / 8 | No | Yes | Success |
+| 2 | −0.659 | −0.366 | 8 / 8 / 8 | No | Yes | Success |
+| 3 | −0.904 | 0.299 | 8 / 8 / 8 | No | Yes | Success |
+| 4 | −0.792 | 0.616 | 8 / 8 / 8 | No | Yes | Success |
+| 5 | 0.218 | −0.727 | 8 / 8 / 8 | No | Yes | Success |
+| 6 | 0.033 | −0.315 | 8 / 8 / 8 | No | Yes | Success |
+| 7 | 0.169 | 0.692 | 8 / 8 / 8 | No | Yes | Success |
+| 8 | 0.553 | −0.474 | 8 / 8 / 8 | No | Yes | Success |
+| 9 | 0.535 | −0.031 | 8 / 8 / 8 | No | Yes | Success |
+| 10 | 0.423 | 0.602 | 8 / 8 / 8 | No | Yes | Success |
+
+The success rate was 10/10. There was no recurring failure on these starts. The policy chose the same nine actions from every start (`2 7 2 5 2 5 2 5 1`). The joint controller absorbed the start offsets, so these runs test the controller as much as the policy. The policy had all 24 targets after its fourth action. It then revisited the 100 and 200 mm bands before withdrawing, because the reward does not penalise extra moves.
+
+### Missing scan readings
+
+```bash
+python -m evaluation.dropout > evaluation/dropout_results.csv
+```
+
+This runs the same ten starts under the seven scan conditions in [evaluation/dropout_scenarios.csv](evaluation/dropout_scenarios.csv), including normal readings. During a dropout the robot keeps moving, but valid hits are not added to the coverage flags. Each method runs 70 episodes.
+
+| Method | Mission success | All 24 targets |
+|---|---|---|
+| Saved PPO | 70 / 70 | 60 / 70 |
+| Fixed replay of the nominal PPO actions | 60 / 70 | 50 / 70 |
+| Script with coverage feedback | 70 / 70 | 70 / 70 |
+| PPO with a fixed withdrawal after 24 targets | 70 / 70 | 60 / 70 |
+
+Only the three-second dropout early in the scan changed a policy decision. The fourth action went to the 300 mm band instead of 200 mm, and the policy still covered all 24 targets. The fixed replay missed sectors 2, 3 and 4 at 300 mm and failed. The scripted controller with coverage feedback also succeeded on every run and took about half the simulated time.
+
+### Starts with offsets on all six joints
+
+```bash
+python -m experiments.check_six_joint_starts | tee evaluation/six_joint_starts_results.txt
+```
+
+This draws 20 valid starts for each offset limit, with every joint offset at random. A start is valid when the scanner is fully outside the entrance and free of contact.
+
+| Offset limit | Successes |
+|---|---|
+| ±1° | 20 / 20 |
+| ±2° | 17 / 20 |
+| ±3° | 12 / 20 |
+
+All 11 failures were contacts between the scanner and the entrance collar during the first move, before any target was recorded. Ten touched the upper part of the collar, within 45° of +Z, and each of these had a positive `joint_3` offset. The one lower contact came from a negative `joint_3` offset. The scanner tip starts 24.9 mm from the collar, so a tilt left over from the start can reach the collar before the controller removes it.
 
 ## View the inspection
 
