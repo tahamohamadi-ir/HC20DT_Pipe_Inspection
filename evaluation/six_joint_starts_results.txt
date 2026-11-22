@@ -1,0 +1,14 @@
+Offsets up to 1 deg on all six joints: {'success': 20} (20 valid of 20 drawn)
+Offsets up to 2 deg on all six joints: {'success': 17, 'collision': 3} (20 valid of 26 drawn)
+  collision at 0.14 s with 0 targets, offsets [1.43, -1.87, 0.92, -1.3, 1.45, 0.17]
+  collision at 0.1 s with 0 targets, offsets [0.46, -0.47, 1.99, 1.92, 0.74, 0.6]
+  collision at 0.09 s with 0 targets, offsets [1.03, 0.05, 1.72, -1.74, 1.37, -1.73]
+Offsets up to 3 deg on all six joints: {'success': 12, 'collision': 8} (20 valid of 29 drawn)
+  collision at 0.16 s with 0 targets, offsets [2.14, -2.8, 1.38, -1.95, 2.18, 0.25]
+  collision at 0.11 s with 0 targets, offsets [0.69, -0.7, 2.98, 2.89, 1.11, 0.9]
+  collision at 0.1 s with 0 targets, offsets [2.69, -0.24, 1.55, -0.02, 0.18, 1.71]
+  collision at 0.09 s with 0 targets, offsets [1.55, 0.08, 2.57, -2.6, 2.05, -2.6]
+  collision at 0.1 s with 0 targets, offsets [-0.93, -0.42, 2.8, 0.37, -1.45, -1.55]
+  collision at 0.11 s with 0 targets, offsets [2.75, -0.78, 0.32, 0.56, 2.09, -2.13]
+  collision at 0.11 s with 0 targets, offsets [-2.94, -0.81, -2.53, 0.92, -1.36, 1.22]
+  collision at 0.15 s with 0 targets, offsets [2.66, -2.24, 2.19, -2.64, -0.72, -0.42]
