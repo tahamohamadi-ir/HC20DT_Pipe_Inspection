@@ -2,7 +2,35 @@
 
 This project uses ROS 2 Jazzy and MuJoCo to simulate a fixed-base Yaskawa Motoman HC20DT inspecting the inside of a pipe. A PPO policy chooses where the scanner goes next: it inserts the scanner through the entrance collar, scans the wall at 100, 200 and 300 mm, and withdraws it. MuJoCo checks for contact at every physics step. A ROS 2 launch file runs the saved policy and publishes the joint states and the scanner pose.
 
-On the ten evaluation starts, the saved policy covered all 24 targets and withdrew fully with zero collisions every time.
+On the ten evaluation starts, the saved policy covered all 24 targets and withdrew fully with zero collisions every time. The technical report is in [report/REPORT.md](report/REPORT.md).
+
+![The scanner outside the collar at the start, and at the 300 mm band](report/figures/fig1_scene.png)
+
+## Quick start
+
+After the [local setup](#local-setup), these three commands run the saved policy through ROS 2, evaluate it on the ten fixed starts, and train it again:
+
+```bash
+ros2 launch launch/inspection.launch.py
+python -m evaluation.run
+python -m training.pilot && python -m training.checkpoints
+```
+
+## Repository layout
+
+| Folder | Contents |
+|---|---|
+| `assets/` | Supplied scanner, pipe and collar meshes |
+| `simulation/` | Robot and scene model, coverage and contact checks, the RL environment and the ROS 2 node |
+| `training/` | PPO pilot and checkpoints, seed study, algorithm and device comparison |
+| `evaluation/` | The ten starts, evaluation scripts and per-episode results |
+| `experiments/` | Standalone contact, ray and wrist checks, early path and dropout checks, and the six-joint stress test |
+| `launch/` | ROS 2 launch file for the saved policy |
+| `models/` | The saved policy |
+| `demo/` | Recorded inspection video and live viewer |
+| `report/` | Technical report, its figures, data and plotting scripts |
+
+The `simulation/`, `training/`, `evaluation/`, `experiments/` and `report/` folders each have a short README that lists their files.
 
 ## Local setup
 
@@ -96,7 +124,7 @@ python simulation/robot.py
 
 At zero joint angles, the emitter was 475 mm forward and 50 mm above the flange. After I rotated `joint_6` by +90°, the ray pointed along +Y in the robot base frame. The script checks the emitter position and ray direction at both poses.
 
-I excluded contact between `base_link` and `link_1` because their collision meshes overlap at the first joint. The zero pose then had no contacts. With `joint_2` at −60° and `joint_3` at 240°, MuJoCo detected contact between `base_link` and `link_5`.
+The scanner hangs from the `flange` through a fixed joint, so MuJoCo treats the two as one rigid body and does not test them against each other. This covers the tool mount without an explicit exclusion. I excluded contact between `base_link` and `link_1` because their collision meshes overlap at the first joint. The zero pose then had no contacts. With `joint_2` at −60° and `joint_3` at 240°, MuJoCo detected contact between `base_link` and `link_5`.
 
 ## Pipe scene and contact checks
 
@@ -128,11 +156,46 @@ ros2 launch experiments/ray_occlusion.launch.py
 
 With the obstacle in the ray's path, the first hit was the obstacle at 100 mm. Moving it 30 mm sideways exposed the wall at 125 mm.
 
+## Other checks
+
+```bash
+python experiments/collar_contact.py
+python -m experiments.wrist_action
+```
+
+The first script checks the segmented collar and pipe wall against hand-calculated contact heights in a stripped-down scene. Its cases and results are in [experiments/collar_contact.md](experiments/collar_contact.md). The second moves the wrist by ±22.5° at the 300 mm band and checks that the ray lands in sectors 1 and 8 without contact.
+
+The next three scripts are the first checks I ran on the trained policy. Each prints its results to the terminal.
+
+```bash
+python -m experiments.compare_inspection_paths
+python -m experiments.check_dropout_official_starts
+python -m experiments.check_coverage_exit
+```
+
+The first compares the saved policy with the scripted path, a shorter scripted path and random actions on the ten starts. The second withholds scan hits during the second decision, for the policy and for a replay of its nominal actions. The third withdraws as soon as all 24 targets are covered, with and without that lost decision. These results led to the fixed dropout scenarios in `evaluation/dropout.py` and the staged withdrawal described below.
+
 ## Train the policy
 
 ### What the policy controls
 
 At each decision, the policy picks one of eight commands. Each command sets a shoulder target, which sets the scan depth, and a wrist target, which sweeps the ray around the pipe. A fixed calculation sets the other joints so the scanner stays level, and a joint controller moves the arm to the commanded pose.
+
+```mermaid
+flowchart LR
+    obs["Observation<br/>joint angles, 24 coverage flags,<br/>decisions left"] --> ppo["PPO policy"]
+    ppo -->|"action 0–7"| cmd["Shoulder and wrist targets"]
+    cmd --> pose["Fixed calculation<br/>keeps the scanner level"]
+    pose --> ctrl["Joint controller"]
+    ctrl --> sim["MuJoCo physics step"]
+    sim --> contact{"Any contact?"}
+    contact -->|"yes"| stop["Episode ends as a collision"]
+    sim --> ray["Scan ray<br/>first hit, depth band, sector"]
+    ray --> obs
+    sim -.->|"launch only"| ros["ROS 2<br/>/joint_states, /scanner_pose"]
+```
+
+The policy makes one decision per move. The controller, contact check and ray test run at every physics step until the move settles.
 
 | Shoulder target | Tool position | Wrist −165° | Wrist +165° |
 |---|---|---|---|
@@ -176,9 +239,37 @@ To train PPO from scratch for seeds 0–4 without the pilot restart, run
 python -m training.seed_study
 ```
 
-Each seed trains continuously and is checked at 128, 1,024, 2,048, 4,096 and 8,192 decisions on the five validation starts and the ten official starts. The script writes `report/data/seed_results_rerun.csv`. The data in Figure 3 are in `report/data/seed_results.csv`. One of five seeds passed at 4,096 decisions and three passed at 8,192. The uninterrupted seed-0 run did not pass at either budget, so the submitted policy depends on the two-stage run above.
+Each seed trains continuously and is checked at 128, 1,024, 2,048, 4,096 and 8,192 decisions on the five validation starts and the ten official starts. The script writes `report/data/seed_results_rerun.csv`. The data behind Figure 3 of the [report](report/REPORT.md) are in `report/data/seed_results.csv`. One of five seeds passed at 4,096 decisions and three passed at 8,192. The uninterrupted seed-0 run did not pass at either budget, so the submitted policy depends on the two-stage run above.
 
 The training times in `seed_results.csv` are about 2.4 times those of a single run on an idle CPU: 26.3 s against 10.8 s for the first 128 decisions of seed 0. Compare the pass and coverage columns rather than the times. All five seeds take several hours on CPU.
+
+## Compare algorithms and devices
+
+```bash
+python -m training.compare_controllers --out ~/hc20dt_runs/compare
+bash training/compare_devices.sh
+```
+
+The first command trains PPO, DQN and A2C for 4,096 decisions with seed 0 and evaluates them on the ten starts, next to the coverage-feedback script and the fixed replay. The output folder must not exist yet. The second command also repeats the two-stage PPO run and evaluates the saved policy, training and evaluating on both CPU and CUDA, so it needs a working CUDA setup in WSL. My results are in [evaluation/hardware_seed0_4096](evaluation/hardware_seed0_4096). Together they cover 200 evaluation episodes.
+
+| Controller (seed 0, 4,096 decisions) | Trained on | Successes | All 24 targets | Training time |
+|---|---|---|---|---|
+| Two-stage PPO (submitted recipe) | CPU | 10 / 10 | 10 / 10 | 518 s |
+| Two-stage PPO (submitted recipe) | CUDA | 10 / 10 | 10 / 10 | 529 s |
+| Continuous PPO | CPU | 0 / 10 | 0 / 10 | 494 s |
+| Continuous PPO | CUDA | 0 / 10 | 10 / 10 | 539 s |
+| DQN | CPU | 0 / 10 | 0 / 10 | 277 s |
+| DQN | CUDA | 0 / 10 | 0 / 10 | 286 s |
+| A2C | CPU | 0 / 10 | 0 / 10 | 431 s |
+| A2C | CUDA | 0 / 10 | 0 / 10 | 480 s |
+
+None of the runs had a collision. Only the two-stage recipe succeeded, on both devices. Retrained on CPU, it chose the same nine actions as the submitted policy. Trained on CUDA, it found a shorter sequence (`3 3 6 3 4 3 0`) that took 42.57 s of simulated motion instead of 58.84 s. The other controllers never chose to withdraw and ran out of decisions, often repeating one command. Continuous PPO on CUDA still covered all 24 targets, which is why the success check needs withdrawal as well as coverage.
+
+![Coverage, withdrawal and success for each controller](report/figures/fig7_controller_outcomes.png)
+
+The GPU did not make training faster. The network is small and MuJoCo runs on the CPU either way. The saved policy gave the same results on both devices and took 19.15 s on CPU and 19.54 s on CUDA for the ten runs. These times come from one run per condition.
+
+![Training and evaluation time on CPU and CUDA](report/figures/fig6_hardware.png)
 
 ## Hardware and training time
 
@@ -186,7 +277,7 @@ The training times in `seed_results.csv` are about 2.4 times those of a single r
 |---|---|
 | CPU | Intel Core i7-13620H (10 cores, 16 threads) |
 | RAM | 40 GB DDR5-4800 (32 GB + 8 GB); about 19 GB available to WSL 2 |
-| GPU | NVIDIA GeForce RTX 3050 Laptop GPU, 6 GB (not used; training ran on CPU) |
+| GPU | NVIDIA GeForce RTX 3050 Laptop GPU, 6 GB (used only in the CPU and CUDA comparison; the submitted policy was trained on CPU) |
 | Host OS | Windows 11 Enterprise, build 26300 |
 | Linux environment | Ubuntu 24.04.5 LTS on WSL 2 (WSL 3.0.5, kernel 6.18.58.1) |
 | ROS 2 | Jazzy |
@@ -195,13 +286,13 @@ The training times in `seed_results.csv` are about 2.4 times those of a single r
 
 | Training stage | Decisions | Wall time (CPU) |
 |---|---|---|
-| Pilot (`python -m training.pilot`) | 0 → 128 | 11.0 s |
-| Checkpoints (`python -m training.checkpoints`) | 128 → 1,024 | 84.7 s |
-| | 1,024 → 2,048 | 104.7 s |
-| | 2,048 → 4,096 | 260.6 s |
+| Pilot | 0 → 128 | 11.0 s |
+| Checkpoint 1 | 128 → 1,024 | 84.7 s |
+| Checkpoint 2 | 1,024 → 2,048 | 104.7 s |
+| Checkpoint 3 | 2,048 → 4,096 | 260.6 s |
 | **Total** | **0 → 4,096** | **461.0 s (7 min 41 s)** |
 
-Times exclude validation episodes. PPO was configured with `device="cpu"`.
+The pilot is `python -m training.pilot`. The three checkpoint stages come from one run of `python -m training.checkpoints`. Times exclude validation episodes. PPO was configured with `device="cpu"`.
 The selected policy is `models/hc20dt_ppo_4096.zip`.
 
 ## Run the saved policy with ROS 2
@@ -259,6 +350,8 @@ This runs the same ten starts under the seven scan conditions in [evaluation/dro
 | Script with coverage feedback | 70 / 70 | 70 / 70 |
 | PPO with a fixed withdrawal after 24 targets | 70 / 70 | 60 / 70 |
 
+![Covered and missed targets under the early three-second dropout](report/figures/fig5_coverage_maps.png)
+
 Only the three-second dropout early in the scan changed a policy decision. The fourth action went to the 300 mm band instead of 200 mm, and the policy still covered all 24 targets. The fixed replay missed sectors 2, 3 and 4 at 300 mm and failed. The scripted controller with coverage feedback also succeeded on every run and took about half the simulated time.
 
 ### Starts with offsets on all six joints
@@ -294,3 +387,12 @@ MUJOCO_GL=egl python -m demo.record_demo
 ```
 
 Both commands use OpenCV and EGL. Recording also requires FFmpeg with the libx264 encoder and replaces `demo/inspection.mp4`.
+
+## Regenerate the report figures
+
+```bash
+MUJOCO_GL=egl python -m report.make_figures
+python -m report.plot_benchmarks
+```
+
+The first command reruns the saved policy to draw figures 1–5 from the committed results. The second draws figures 6–10 from the CSV and text results without running the simulation. Both write to `report/figures/`.
