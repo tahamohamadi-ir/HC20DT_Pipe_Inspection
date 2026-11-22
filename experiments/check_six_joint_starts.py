@@ -18,6 +18,15 @@ RANGES_DEG = (1.0, 2.0, 3.0)
 STARTS_PER_RANGE = 20
 
 
+def contact_pairs(model, data):
+    """Name both sides of each active contact, by geom name or else body name."""
+    def label(geom):
+        geom = int(geom)
+        return model.geom(geom).name or model.body(model.geom_bodyid[geom]).name
+
+    return sorted({tuple(sorted(label(g) for g in contact.geom)) for contact in data.contact})
+
+
 def run_from(env, policy, offsets_deg):
     sim = env.inspection
     env.reset(options={"offsets_deg": (0.0, 0.0)})
@@ -31,7 +40,9 @@ def run_from(env, policy, offsets_deg):
         action = int(policy.predict(obs, deterministic=True)[0])
         obs, _, terminated, truncated, info = env.step(action)
         if terminated or truncated:
-            return info["outcome"], len(sim.covered), sim.data.time
+            outcome = info["outcome"]
+            pairs = contact_pairs(sim.model, sim.data) if outcome == "collision" else []
+            return outcome, len(sim.covered), sim.data.time, pairs
 
 
 def main():
@@ -47,15 +58,17 @@ def main():
             result = run_from(env, policy, offsets)
             if result is None:
                 continue
-            outcome, targets, sim_time = result
+            outcome, targets, sim_time, pairs = result
             outcomes[outcome] += 1
             if outcome != "success":
-                failures.append((np.round(offsets, 2).tolist(), outcome, targets, round(sim_time, 2)))
+                failures.append((np.round(offsets, 2).tolist(), outcome, targets,
+                                 round(sim_time, 2), pairs))
 
         print(f"Offsets up to {limit:g} deg on all six joints: {dict(outcomes)} "
               f"({STARTS_PER_RANGE} valid of {drawn} drawn)", flush=True)
-        for offsets, outcome, targets, sim_time in failures:
-            print(f"  {outcome} at {sim_time} s with {targets} targets, offsets {offsets}", flush=True)
+        for offsets, outcome, targets, sim_time, pairs in failures:
+            print(f"  {outcome} at {sim_time} s with {targets} targets, offsets {offsets}, "
+                  f"contacts {pairs}", flush=True)
 
 
 if __name__ == "__main__":
