@@ -1,5 +1,7 @@
+from pathlib import Path
 from time import perf_counter
 
+import torch
 from stable_baselines3 import PPO
 
 from simulation.gym_env import PipeInspectionGym
@@ -31,7 +33,17 @@ def validate(policy, env):
         print(f"start={offsets} coverage={counts} outcome={info['outcome']}")
 
 
-if __name__ == "__main__":
+def learn_timed(policy, steps, callback=None, reset=True):
+    if policy.device.type == "cuda":
+        torch.cuda.synchronize(policy.device)
+    start = perf_counter()
+    policy.learn(total_timesteps=steps, reset_num_timesteps=reset, callback=callback)
+    if policy.device.type == "cuda":
+        torch.cuda.synchronize(policy.device)
+    return perf_counter() - start
+
+
+def run_pilot(device="cpu", folder=Path("/tmp"), seed=0, callback=None):
     train_env = PipeInspectionGym()
     validation_env = PipeInspectionGym()
     policy = PPO(
@@ -40,19 +52,26 @@ if __name__ == "__main__":
         n_steps=64,
         batch_size=32,
         gamma=1.0,
-        device="cpu",
-        seed=0,
+        device=device,
+        seed=seed,
         verbose=1,
     )
 
     print("Before training")
     validate(policy, validation_env)
 
-    start = perf_counter()
-    policy.learn(total_timesteps=128)
-    print(f"Training time: {perf_counter() - start:.1f} s")
+    elapsed = learn_timed(policy, 128, callback)
+    print(f"Training time: {elapsed:.1f} s")
 
-    policy.save("/tmp/hc20dt_ppo_pilot")
-    saved_policy = PPO.load("/tmp/hc20dt_ppo_pilot", device="cpu")
+    path = folder / "hc20dt_ppo_pilot.zip"
+    policy.save(path)
+    saved_policy = PPO.load(path, device=device)
     print("After training, reloaded from disk")
     validate(saved_policy, validation_env)
+    train_env.close()
+    validation_env.close()
+    return elapsed
+
+
+if __name__ == "__main__":
+    run_pilot()
