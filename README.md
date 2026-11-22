@@ -137,7 +137,31 @@ five validation starts. After reloading the trained policy, coverage was
 the 16-decision limit. On the nominal start, the policy kept requesting the
 same wrist position at 200 mm after its second decision.
 
-To reproduce training, run python -m training.pilot followed by python -m training.checkpoints from the repository root. I selected the 4,096-decision checkpoint after it covered all 24 targets and withdrew without contact on all five validation starts. Training took 461 seconds on an Intel Core i7-13620H CPU, excluding validation. The selected policy is included at models/hc20dt_ppo_4096.zip.
+To reproduce training, run python -m training.pilot followed by python -m training.checkpoints from the repository root. I selected the 4,096-decision checkpoint after it covered all 24 targets and withdrew without contact on all five validation starts.
+
+## Hardware and training time
+
+| Item | Value |
+|---|---|
+| CPU | Intel Core i7-13620H (10 cores, 16 threads) |
+| RAM | 40 GB DDR5-4800 (32 GB + 8 GB); about 19 GB available to WSL 2 |
+| GPU | NVIDIA GeForce RTX 3050 Laptop GPU, 6 GB (not used; training ran on CPU) |
+| Host OS | Windows 11 Enterprise, build 26300 |
+| Linux environment | Ubuntu 24.04.5 LTS on WSL 2 (WSL 3.0.5, kernel 6.18.58.1) |
+| ROS 2 | Jazzy |
+| Python | 3.12.3 |
+| Key libraries | MuJoCo 4.0.1, Gymnasium 1.2.2, Stable-Baselines3 2.7.1, PyTorch 2.15.0, NumPy 1.26.4 |
+
+| Training stage | Decisions | Wall time (CPU) |
+|---|---|---|
+| Pilot (`python -m training.pilot`) | 0 → 128 | 11.0 s |
+| Checkpoints (`python -m training.checkpoints`) | 128 → 1,024 | 84.7 s |
+| | 1,024 → 2,048 | 104.7 s |
+| | 2,048 → 4,096 | 260.6 s |
+| **Total** | **0 → 4,096** | **461.0 s (7 min 41 s)** |
+
+Times exclude validation episodes. PPO was configured with `device="cpu"`.
+The selected policy is `models/hc20dt_ppo_4096.zip`.
 
 ## Run the saved policy with ROS 2
 
