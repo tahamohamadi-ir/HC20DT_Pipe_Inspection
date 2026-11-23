@@ -1,6 +1,6 @@
 # evaluation
 
-This folder holds the fixed test starts, the scripts that run the saved policy on them, and every result file quoted in the report.
+This folder holds the fixed evaluation starts, the scripts that use them and the results of those runs.
 
 | File | What it holds |
 |---|---|

@@ -146,13 +146,13 @@ To check whether the result depended on PPO or on the training device, I trained
 
 *Figure 5. Coverage, withdrawal and success on the ten official starts, evaluated on the CPU without scan dropout. Depth columns show the mean number of sectors covered.*
 
-Only two-stage PPO succeeded, and it did so on both devices. Retrained on the CPU, it chose the same nine actions as the submitted policy. Trained on the GPU, it learned a shorter sequence, `3 3 6 3 4 3 0`, and finished each run in 42.57 s of simulated motion instead of 58.84 s. Continuous PPO, DQN and A2C never chose to withdraw and used all 16 decisions, often repeating one command. Continuous PPO trained on the GPU still covered all 24 targets, which shows why coverage alone is not a pass.
+Of the four training configurations, only two-stage PPO passed all ten starts on both devices. Its CPU run matched the submitted nine-action sequence. Its CUDA run took seven actions (`3 3 6 3 4 3 0`) and 42.57 simulated seconds, versus 58.84 s for the submitted policy. Continuous PPO, DQN and A2C reached the decision limit without withdrawing. Continuous PPO trained on CUDA still covered all 24 targets.
 
 ![Training and evaluation time on CPU and CUDA](figures/fig6_hardware.png)
 
 *Figure 6. Training time for 4,096 decisions and wall time for the ten official runs. One timing run per condition. The two-stage CPU bar is a separate rerun; the submitted run took 461 s.*
 
-The GPU did not shorten training. The network is small and MuJoCo runs on the CPU either way, so each GPU run took slightly longer. The saved policy gave the same results on both devices, taking 19.15 s on the CPU and 19.54 s on the GPU for the ten runs.
+Training took longer on CUDA in all four comparisons (one run per condition). At seed 0, two-stage PPO learned different sequences on CPU and CUDA. The comparison did not isolate the cause. Each of the nine checkpoints gave the same actions and outcomes on both devices for all ten starts.
 
 Project files: [Comparison script](../training/compare_controllers.py) · [CPU and CUDA runs](../training/compare_devices.sh) · [Summary](../evaluation/hardware_seed0_4096/summary.csv) · [Episode results](../evaluation/hardware_seed0_4096)
 
@@ -164,8 +164,12 @@ Project files: [Comparison script](../training/compare_controllers.py) · [CPU a
 
 **What the policy controls.** PPO chooses the order of eight scan commands, one per move. It does not produce joint torques or trajectories: the scan poses, the levelling calculation and the joint controller are fixed. The evidence that its choices depend on what the scanner has seen comes from the dropout test described above. On the ten official starts its decisions did not change, so those runs mainly test the controller.
 
-**How it compares with a script.** In this fixed scene, a short script that repeats a sweep when a band is incomplete did as well or better: 70 of 70 runs with full coverage, in about half the simulated time. The learned policy spends four extra moves after full coverage because the reward has no cost per move. Its success also depends on the training run: one of five seeds passed at 4,096 decisions, and changing the training device acted like changing the seed, because PyTorch draws different random numbers on the CPU and the GPU. A fixed checkpoint, in contrast, gave identical actions and outcomes on both devices in all 90 paired episodes.
+**How it compares with a script.** The coverage-feedback script reached all 24 targets in all 70 runs. PPO passed all 70 runs and reached all 24 targets in 60. In the nominal run with normal readings, PPO made four extra moves after full coverage. Those moves earned no reward and carried no penalty.
 
-**Next steps.** The first change would be a small cost per decision, so that withdrawing right after full coverage pays off, followed by more seeds and longer runs to measure how often the recipe succeeds. Adding the pipe pose and the scan depth to the observation, with continuous or residual actions on top of the controller, would let the policy handle pipe placement error, which neither the current policy nor the script can do. A short levelling move before the first insertion would address the collar contacts in the six-joint test.
+**Next steps.** I would test whether a small cost per decision reduces the extra moves while preserving coverage and withdrawal. To investigate the collar contacts, I would level the scanner before insertion and repeat the six-joint start test. Varying the pipe pose in a separate test would show how sensitive the current commands are to placement error.
 
 Project files: [Demo video](../demo/inspection.mp4) · [Frame script](demo_frames.py) · [Dropout results](../evaluation/dropout_results.csv) · [Seed results](data/seed_results.csv)
+
+## Use of AI tools
+
+I used AI tools for suggestions on implementation and evaluation, and to help draft and organise this report, edit its grammar and format the figures and tables.

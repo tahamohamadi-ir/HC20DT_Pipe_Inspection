@@ -269,13 +269,13 @@ The first command trains PPO, DQN and A2C for 4,096 decisions with seed 0 and ev
 | A2C | CPU | 0 / 10 | 0 / 10 | 431 s |
 | A2C | CUDA | 0 / 10 | 0 / 10 | 480 s |
 
-None of the runs had a collision. Only the two-stage recipe succeeded, on both devices. Retrained on CPU, it chose the same nine actions as the submitted policy. Trained on CUDA, it found a shorter sequence (`3 3 6 3 4 3 0`) that took 42.57 s of simulated motion instead of 58.84 s. The other controllers never chose to withdraw and ran out of decisions, often repeating one command. Continuous PPO on CUDA still covered all 24 targets but failed because it never withdrew.
+None of the runs had a collision. Among the four training configurations, only two-stage PPO succeeded on all ten starts after training on either device. The CPU run chose the same nine actions as the submitted policy. The CUDA run found a shorter sequence (`3 3 6 3 4 3 0`) that took 42.57 s of simulated motion. Continuous PPO, DQN and A2C reached the decision limit without withdrawing. Continuous PPO trained on CUDA covered all 24 targets.
 
 ![Coverage, withdrawal and success for each controller](report/figures/fig7_controller_outcomes.png)
 
-The GPU did not make training faster. The network is small and MuJoCo runs on the CPU either way.
+In one timing run per configuration, training took longer on CUDA for all four configurations.
 
-The device does change what training produces. With the same seed, PyTorch draws different random numbers on the CPU and on the GPU, so PPO samples different actions while it learns and ends with a different policy. Switching the training device therefore acts like changing the seed. Evaluation is different: each trained model gave identical actions, coverage and outcomes on both devices in all 90 paired episodes. For the saved policy, the ten runs took 19.15 s on CPU and 19.54 s on CUDA, from one timing run each.
+At seed 0, two-stage PPO learned different action sequences on CPU and CUDA. The comparison did not isolate the cause. For each of the nine checkpoints, evaluating the same weights on CPU and CUDA gave identical actions, coverage and outcomes on all ten starts. The submitted checkpoint took 19.15 s on CPU and 19.54 s on CUDA for those ten runs.
 
 ![Training and evaluation time on CPU and CUDA](report/figures/fig6_hardware.png)
 
